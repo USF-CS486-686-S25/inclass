@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Base Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        label {
+            display: inline-block;
+            width: 100px;
+        }
+        input {
+            padding: 5px;
+            width: 300px;
+        }
+        .error {
+            color: red;
+            display: none;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>32-bit Base Converter</h1>
+    
+    <div class="input-group">
+        <label for="decimal">Decimal:</label>
+        <input type="text" id="decimal" placeholder="Enter decimal number">
+        <div id="decimal-error" class="error">Please enter a valid 32-bit decimal number</div>
+    </div>
+
+    <div class="input-group">
+        <label for="binary">Binary:</label>
+        <input type="text" id="binary" placeholder="Enter binary number">
+        <div id="binary-error" class="error">Please enter a valid 32-bit binary number</div>
+    </div>
+
+    <div class="input-group">
+        <label for="hex">Hexadecimal:</label>
+        <input type="text" id="hex" placeholder="Enter hexadecimal number">
+        <div id="hex-error" class="error">Please enter a valid 32-bit hexadecimal number</div>
+    </div>
+
+    <script src="/static/converter.js"></script>
+</body>
+</html>
