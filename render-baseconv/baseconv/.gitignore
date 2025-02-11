@@ -1,0 +1,21 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.env
+*.venv
+
+# Logs
+*.log
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# Dependency management
+Pipfile.lock
+poetry.lock

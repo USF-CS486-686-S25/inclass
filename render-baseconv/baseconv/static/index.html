@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>32-bit Base Converter</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <h1>32-bit Base Converter</h1>
+    <div class="input-group">
+        <label for="decimal">Decimal:</label>
+        <input type="number" id="decimal" min="-2147483648" max="2147483647">
+    </div>
+    <div class="input-group">
+        <label for="binary">Binary:</label>
+        <input type="text" id="binary" pattern="[01]+">
+    </div>
+    <div class="input-group">
+        <label for="hexadecimal">Hexadecimal:</label>
+        <input type="text" id="hexadecimal" pattern="[0-9a-fA-F]+">
+    </div>
+    <div id="error-message"></div>
+    <script src="/static/script.js"></script>
+</body>
+</html>
