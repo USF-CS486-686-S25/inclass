@@ -42,7 +42,8 @@ class SimpleVectorDB:
         for (text, emb) in self.data:
             dist = euclidean_distance(query_embedding, emb)
             print(text, " : ", dist)
-            results.append((text, dist))
+            print("emb : ", emb)
+            results.append((text, dist, emb))
         results.sort(key=lambda x: x[1])
         return results[:k]
 
@@ -83,6 +84,8 @@ if __name__ == "__main__":
     
     # 3) Suppose a user query
     query = "cat dog jumped"
+    query = "cat jumped"
+    query = "the dog is under the cat"
     query_embedding = text_to_bow(query)
     
     # 4) Search for the most relevant chunk
@@ -92,13 +95,14 @@ if __name__ == "__main__":
 
     # 5) Display the retrieved chunk(s) and form a naive answer
     print("Query:", query)
-    for i, (res_text, dist) in enumerate(results):
+    print("emb: ", query_embedding)    
+    for i, (res_text, dist, emb) in enumerate(results):
         print(f"Retrieved chunk #{i+1} (Distance={dist:.2f}): {res_text}")
     
     # (Optional) Construct an answer from retrieved chunk(s)
     # A real RAG system would feed the chunk + query to an LLM for generation.
     # For demonstration, we just print the chunk as "the answer."
-    best_chunk, _ = results[0]
+    best_chunk, _, _ = results[0]
     answer = f"The text says: '{best_chunk}'."
     print("Answer:", answer)
 

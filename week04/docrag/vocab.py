@@ -148,7 +148,7 @@ def main():
             print("\nTop 2 similar chunks:")
             for text, similarity in results:
                 print(f"\nSimilarity: {similarity:.4f}")
-                print(f"Text: {text[:100]}...")
+                print(f"Text: {text[:500]}...")
             
     except FileNotFoundError:
         print(f"Error: File '{filename}' not found")
