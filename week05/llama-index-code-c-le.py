@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 from pathlib import Path
 import requests
 import json
@@ -16,18 +17,35 @@ from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.embeddings import BaseEmbedding
 from llama_index.core.bridge.pydantic import Field, PrivateAttr
 
+# Try to import VoyageEmbedding
+try:
+    from llama_index.embeddings.voyageai import VoyageEmbedding
+    VOYAGE_AVAILABLE = True
+except ImportError:
+    print("VoyageEmbedding not available. To use Voyage AI embeddings, install with:")
+    print("pip install llama-index-embeddings-voyage")
+    VOYAGE_AVAILABLE = False
+
+# Try to import dotenv for loading environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Load environment variables (for Voyage API key)
+except ImportError:
+    print("python-dotenv not available. To use .env files, install with:")
+    print("pip install python-dotenv")
+
 # Create a custom embedding class for Ollama
 class OllamaEmbedding(BaseEmbedding):
     """Ollama embedding model.
     
     Uses Ollama's API to generate embeddings.
     """
-    model_name: str = Field(default="jina/jina-embeddings-v2-base-en:latest", description="Name of the Ollama embedding model")
+    model_name: str = Field(default="nomic-embed-text", description="Name of the Ollama embedding model")
     _base_url: str = PrivateAttr(default="http://localhost:11434")
     
     def __init__(
         self,
-        model_name: str = "jina/jina-embeddings-v2-base-en:latest",
+        model_name: str = "nomic-embed-text",
         base_url: str = "http://localhost:11434",
         embed_batch_size: int = 10,
         **kwargs
@@ -93,14 +111,51 @@ class OllamaEmbedding(BaseEmbedding):
             embeddings.append(self._get_embedding(text))
         return embeddings
 
-# Set up Ollama embedding model
-embed_model = OllamaEmbedding(
-    #model_name="nomic-embed-text",
-    model_name="jina/jina-embeddings-v2-base-en:latest",
-    base_url="http://localhost:11434",  # Default Ollama server URL
-)
+def get_embedding_model(model_type="ollama"):
+    """Get the embedding model based on the specified type.
+    
+    Args:
+        model_type: Type of embedding model to use ('ollama' or 'voyage')
+        
+    Returns:
+        The embedding model instance
+    """
+    if model_type.lower() == "voyage":
+        # Check if Voyage is available
+        if not VOYAGE_AVAILABLE:
+            print("Voyage AI embeddings not available. Using Ollama instead.")
+            return get_embedding_model("ollama")
+            
+        # Check if VOYAGE_API_KEY is set
+        voyage_api_key = os.environ.get("VOYAGE_API_KEY")
+        if not voyage_api_key:
+            print("Warning: VOYAGE_API_KEY environment variable not set. Using Ollama instead.")
+            return get_embedding_model("ollama")
+        
+        # Use Voyage AI embedding model
+        return VoyageEmbedding(
+            voyage_api_key=voyage_api_key,
+            #model_name="voyage-3"
+            model_name="voyage-code-3",
+        )
+    else:
+        # Use Ollama embedding model
+        return OllamaEmbedding(
+            model_name="nomic-embed-text",
+            base_url="http://localhost:11434"
+        )
 
-# Configure LlamaIndex to use Ollama embeddings
+# Parse command line arguments
+parser = argparse.ArgumentParser(description="LlamaIndex with custom embeddings")
+parser.add_argument("--embedding", choices=["ollama", "voyage"], default="ollama",
+                    help="Embedding model to use (ollama or voyage)")
+args = parser.parse_args()
+
+# Set up the embedding model based on command line argument
+embed_model = get_embedding_model(args.embedding)
+print(f"Using embedding model: {args.embedding}")
+
+# Configure LlamaIndex to use the selected embedding model
 Settings.embed_model = embed_model
 
 # Create a text splitter instance (using SentenceSplitter instead of CodeSplitter to avoid tree-sitter dependency)
@@ -112,9 +167,9 @@ text_splitter = SentenceSplitter(
 # Create a code splitter instance
 code_splitter = CodeSplitter(
     language="c",  # Default language
-    chunk_lines=30,    # Number of lines per chunk
+    chunk_lines=50,    # Number of lines per chunk
     chunk_lines_overlap=5,  # Number of overlapping lines between chunks
-    max_chars=512,    # Maximum characters per chunk
+    max_chars=1024,    # Maximum characters per chunk
 )
 
 # Load documents
@@ -154,5 +209,5 @@ print(response.response)
 print("=== EMBEDDING MODEL ===")
 print(Settings.embed_model)
 
-print("=== LLM ===")
-print(Settings.llm)
+#print("=== LLM ===")
+#print(Settings.llm)

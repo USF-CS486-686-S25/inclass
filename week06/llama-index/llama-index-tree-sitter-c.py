@@ -182,15 +182,17 @@ def main():
     
     try:
         # Setup tree-sitter C parser
-        c_language, library_path = setup_tree_sitter()
-        if c_language is None:
-            print("Failed to set up tree-sitter. Exiting.")
-            return
+        #c_language, library_path = setup_tree_sitter()
+        #if c_language is None:
+        #    print("Failed to set up tree-sitter. Exiting.")
+        #    return
+
+        #C_LANGUAGE = Language(str(library_path), 'c')
         
         # Verify parser works
-        if not verify_parser(c_language):
-            print("Parser verification failed. Exiting.")
-            return
+        #if not verify_parser(C_LANGUAGE):
+        #    print("Parser verification failed. Exiting.")
+        #    return
             
         # Process the C code with LlamaIndex
         print("\nProcessing C code with LlamaIndex...")

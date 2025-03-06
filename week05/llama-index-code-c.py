@@ -61,5 +61,5 @@ print(response)
 print("=== RESPONSE ===")
 print(response.response)
 
-print("=== LLM ===")
-print(Settings.llm)
+#print("=== LLM ===")
+#print(Settings.llm)

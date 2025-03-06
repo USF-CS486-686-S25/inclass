@@ -33,47 +33,6 @@ except ImportError as e:
     print("pip install llama-index tree-sitter tree-sitter-languages")
     sys.exit(1)
 
-def setup_tree_sitter():
-    """
-    Set up tree-sitter for C language parser.
-    """
-    try:
-        # Directory to store tree-sitter languages
-        languages_dir = Path("./tree-sitter-langs")
-        languages_dir.mkdir(exist_ok=True)
-        
-        # Path to the built language library
-        library_path = languages_dir / "languages.so"
-        
-        # Check if we need to build the language
-        if not library_path.exists():
-            print("Setting up tree-sitter C parser...")
-            
-            # Clone the C grammar repository if it doesn't exist
-            c_repo_path = languages_dir / "tree-sitter-c"
-            if not c_repo_path.exists():
-                os.system(f"git clone https://github.com/tree-sitter/tree-sitter-c {c_repo_path}")
-            
-            # Build the language library
-            Language.build_library(
-                str(library_path),
-                [str(c_repo_path)]
-            )
-            print("Tree-sitter C parser setup complete!")
-        
-        # Set environment variable for tree-sitter to find the languages
-        os.environ["LLAMA_INDEX_TREE_SITTER_LIB_PATH"] = str(library_path)
-        
-        # Load the C language to verify it works
-        C_LANGUAGE = Language(str(library_path), 'c')
-        print("Successfully loaded C language parser")
-        return C_LANGUAGE, str(library_path)
-    except Exception as e:
-        print(f"Error setting up tree-sitter: {e}")
-        import traceback
-        traceback.print_exc()
-        return None, ""
-
 def process_c_file_with_enhanced_splitter(file_path):
     """Process a C file using the enhanced CodeSplitter with file path metadata."""
     try:
@@ -106,9 +65,9 @@ def process_c_file_with_enhanced_splitter(file_path):
         # Configure the enhanced CodeSplitter
         code_splitter = CodeSplitter(
             language="c",
-            chunk_lines=10,  # Adjust as needed
+            chunk_lines=30,  # Adjust as needed
             chunk_lines_overlap=5,  # Adjust as needed
-            max_chars=256,  # Adjust as needed
+            max_chars=1024,  # Adjust as needed
         )
         
         # Split the document into nodes with enhanced metadata
@@ -172,13 +131,7 @@ def main():
     
     file_path = sys.argv[1]
     
-    try:
-        # Setup tree-sitter C parser
-        c_language, library_path = setup_tree_sitter()
-        if c_language is None:
-            print("Failed to set up tree-sitter. Exiting.")
-            return
-            
+    try:            
         # Process the C file with enhanced CodeSplitter
         print("\nProcessing C file with enhanced CodeSplitter...")
         nodes, index = process_c_file_with_enhanced_splitter(file_path)
