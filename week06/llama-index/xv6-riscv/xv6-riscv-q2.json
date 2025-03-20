@@ -1,0 +1,47 @@
+[
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/sysfile.c",
+    "filename": "sysfile.c",
+    "relpath": "kernel/sysfile.c",
+    "start_line": 304,
+    "end_line": 371,
+    "length": 68,
+    "content": "uint64\nsys_open(void)\n{\n  char path[MAXPATH];\n  int fd, omode;\n  struct file *f;\n  struct inode *ip;\n  int n;\n\n  argint(1, &omode);\n  if((n = argstr(0, path, MAXPATH)) < 0)\n    return -1;\n\n  begin_op();\n\n  if(omode & O_CREATE){\n    ip = create(path, T_FILE, 0, 0);\n    if(ip == 0){\n      end_op();\n      return -1;\n    }\n  } else {\n    if((ip = namei(path)) == 0){\n      end_op();\n      return -1;\n    }\n    ilock(ip);\n    if(ip->type == T_DIR && omode != O_RDONLY){\n      iunlockput(ip);\n      end_op();\n      return -1;\n    }\n  }\n\n  if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){\n    iunlockput(ip);\n    end_op();\n    return -1;\n  }\n\n  if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){\n    if(f)\n      fileclose(f);\n    iunlockput(ip);\n    end_op();\n    return -1;\n  }\n\n  if(ip->type == T_DEVICE){\n    f->type = FD_DEVICE;\n    f->major = ip->major;\n  } else {\n    f->type = FD_INODE;\n    f->off = 0;\n  }\n  f->ip = ip;\n  f->readable = !(omode & O_WRONLY);\n  f->writable = (omode & O_WRONLY) || (omode & O_RDWR);\n\n  if((omode & O_TRUNC) && ip->type == T_FILE){\n    itrunc(ip);\n  }\n\n  iunlock(ip);\n  end_op();\n\n  return fd;\n}"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/sysfile.c",
+    "filename": "sysfile.c",
+    "relpath": "kernel/sysfile.c",
+    "start_line": 245,
+    "end_line": 302,
+    "length": 58,
+    "content": "static struct inode*\ncreate(char *path, short type, short major, short minor)\n{\n  struct inode *ip, *dp;\n  char name[DIRSIZ];\n\n  if((dp = nameiparent(path, name)) == 0)\n    return 0;\n\n  ilock(dp);\n\n  if((ip = dirlookup(dp, name, 0)) != 0){\n    iunlockput(dp);\n    ilock(ip);\n    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))\n      return ip;\n    iunlockput(ip);\n    return 0;\n  }\n\n  if((ip = ialloc(dp->dev, type)) == 0){\n    iunlockput(dp);\n    return 0;\n  }\n\n  ilock(ip);\n  ip->major = major;\n  ip->minor = minor;\n  ip->nlink = 1;\n  iupdate(ip);\n\n  if(type == T_DIR){  // Create . and .. entries.\n    // No ip->nlink++ for \".\": avoid cyclic ref count.\n    if(dirlink(ip, \".\", ip->inum) < 0 || dirlink(ip, \"..\", dp->inum) < 0)\n      goto fail;\n  }\n\n  if(dirlink(dp, name, ip->inum) < 0)\n    goto fail;\n\n  if(type == T_DIR){\n    // now that success is guaranteed:\n    dp->nlink++;  // for \"..\"\n    iupdate(dp);\n  }\n\n  iunlockput(dp);\n\n  return ip;\n\n fail:\n  // something went wrong. de-allocate ip.\n  ip->nlink = 0;\n  iupdate(ip);\n  iunlockput(ip);\n  iunlockput(dp);\n  return 0;\n}"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/syscall.c",
+    "filename": "syscall.c",
+    "relpath": "kernel/syscall.c",
+    "start_line": 104,
+    "end_line": 129,
+    "length": 26,
+    "content": "// An array mapping syscall numbers from syscall.h\n// to the function that handles the system call.\nstatic uint64 (*syscalls[])(void) = {\n[SYS_fork]    sys_fork,\n[SYS_exit]    sys_exit,\n[SYS_wait]    sys_wait,\n[SYS_pipe]    sys_pipe,\n[SYS_read]    sys_read,\n[SYS_kill]    sys_kill,\n[SYS_exec]    sys_exec,\n[SYS_fstat]   sys_fstat,\n[SYS_chdir]   sys_chdir,\n[SYS_dup]     sys_dup,\n[SYS_getpid]  sys_getpid,\n[SYS_sbrk]    sys_sbrk,\n[SYS_sleep]   sys_sleep,\n[SYS_uptime]  sys_uptime,\n[SYS_open]    sys_open,\n[SYS_write]   sys_write,\n[SYS_mknod]   sys_mknod,\n[SYS_unlink]  sys_unlink,\n[SYS_link]    sys_link,\n[SYS_mkdir]   sys_mkdir,\n[SYS_close]   sys_close,\n};"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/syscall.h",
+    "filename": "syscall.h",
+    "relpath": "kernel/syscall.h",
+    "start_line": 1,
+    "end_line": 22,
+    "length": 22,
+    "content": "// System call numbers\n#define SYS_fork    1\n#define SYS_exit    2\n#define SYS_wait    3\n#define SYS_pipe    4\n#define SYS_read    5\n#define SYS_kill    6\n#define SYS_exec    7\n#define SYS_fstat   8\n#define SYS_chdir   9\n#define SYS_dup    10\n#define SYS_getpid 11\n#define SYS_sbrk   12\n#define SYS_sleep  13\n#define SYS_uptime 14\n#define SYS_open   15\n#define SYS_write  16\n#define SYS_mknod  17\n#define SYS_unlink 18\n#define SYS_link   19\n#define SYS_mkdir  20\n#define SYS_close  21"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/fcntl.h",
+    "filename": "fcntl.h",
+    "relpath": "kernel/fcntl.h",
+    "start_line": 1,
+    "end_line": 6,
+    "length": 6,
+    "content": "#define O_RDONLY  0x000\n#define O_WRONLY  0x001\n#define O_RDWR    0x002\n#define O_CREATE  0x200\n#define O_TRUNC   0x400"
+  },
+]
