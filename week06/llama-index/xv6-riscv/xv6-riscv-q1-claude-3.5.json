@@ -1,0 +1,38 @@
+[
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/proc.c",
+    "filename": "proc.c",
+    "relpath": "kernel/proc.c",
+    "start_line": 277,
+    "end_line": 326,
+    "length": 50,
+    "content": "// Create a new process, copying the parent.\n// Sets up child kernel stack to return as if from fork() system call.\nint\nfork(void)\n{\n  int i, pid;\n  struct proc *np;\n  struct proc *p = myproc();\n\n  // Allocate process.\n  if((np = allocproc()) == 0){\n    return -1;\n  }\n\n  // Copy user memory from parent to child.\n  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){\n    freeproc(np);\n    release(&np->lock);\n    return -1;\n  }\n  np->sz = p->sz;\n\n  // copy saved user registers.\n  *(np->trapframe) = *(p->trapframe);\n\n  // Cause fork to return 0 in the child.\n  np->trapframe->a0 = 0;\n\n  // increment reference counts on open file descriptors.\n  for(i = 0; i < NOFILE; i++)\n    if(p->ofile[i])\n      np->ofile[i] = filedup(p->ofile[i]);\n  np->cwd = idup(p->cwd);\n\n  safestrcpy(np->name, p->name, sizeof(p->name));\n\n  pid = np->pid;\n\n  release(&np->lock);\n\n  acquire(&wait_lock);\n  np->parent = p;\n  release(&wait_lock);\n\n  acquire(&np->lock);\n  np->state = RUNNABLE;\n  release(&np->lock);\n\n  return pid;\n}"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/proc.h",
+    "filename": "proc.h",
+    "relpath": "kernel/proc.h",
+    "start_line": 82,
+    "end_line": 107,
+    "length": 26,
+    "content": "enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };\n\n// Per-process state\nstruct proc {\n  struct spinlock lock;\n\n  // p->lock must be held when using these:\n  enum procstate state;        // Process state\n  void *chan;                  // If non-zero, sleeping on chan\n  int killed;                  // If non-zero, have been killed\n  int xstate;                  // Exit status to be returned to parent's wait\n  int pid;                     // Process ID\n\n  // wait_lock must be held when using this:\n  struct proc *parent;         // Parent process\n\n  // these are private to the process, so p->lock need not be held.\n  uint64 kstack;               // Virtual address of kernel stack\n  uint64 sz;                   // Size of process memory (bytes)\n  pagetable_t pagetable;       // User page table\n  struct trapframe *trapframe; // data page for trampoline.S\n  struct context context;      // swtch() here to run process\n  struct file *ofile[NOFILE];  // Open files\n  struct inode *cwd;           // Current directory\n  char name[16];               // Process name (debugging)\n};"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/proc.c",
+    "filename": "proc.c", 
+    "relpath": "kernel/proc.c",
+    "start_line": 105,
+    "end_line": 150,
+    "length": 46,
+    "content": "// Look in the process table for an UNUSED proc.\n// If found, initialize state required to run in the kernel,\n// and return with p->lock held.\n// If there are no free procs, or a memory allocation fails, return 0.\nstatic struct proc*\nallocproc(void)\n{\n  struct proc *p;\n\n  for(p = proc; p < &proc[NPROC]; p++) {\n    acquire(&p->lock);\n    if(p->state == UNUSED) {\n      goto found;\n    } else {\n      release(&p->lock);\n    }\n  }\n  return 0;\n\nfound:\n  p->pid = allocpid();\n  p->state = USED;\n\n  // Allocate a trapframe page.\n  if((p->trapframe = (struct trapframe *)kalloc()) == 0){\n    freeproc(p);\n    release(&p->lock);\n    return 0;\n  }\n\n  // An empty user page table.\n  p->pagetable = proc_pagetable(p);\n  if(p->pagetable == 0){\n    freeproc(p);\n    release(&p->lock);\n    return 0;\n  }\n\n  // Set up new context to start executing at forkret,\n  // which returns to user space.\n  memset(&p->context, 0, sizeof(p->context));\n  p->context.ra = (uint64)forkret;\n  p->context.sp = p->kstack + PGSIZE;\n\n  return p;\n}"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/proc.h",
+    "filename": "proc.h",
+    "relpath": "kernel/proc.h",
+    "start_line": 1,
+    "end_line": 19,
+    "length": 19,
+    "content": "// Saved registers for kernel context switches.\nstruct context {\n  uint64 ra;\n  uint64 sp;\n\n  // callee-saved\n  uint64 s0;\n  uint64 s1;\n  uint64 s2;\n  uint64 s3;\n  uint64 s4;\n  uint64 s5;\n  uint64 s6;\n  uint64 s7;\n  uint64 s8;\n  uint64 s9;\n  uint64 s10;\n  uint64 s11;\n};"
+  }
+]

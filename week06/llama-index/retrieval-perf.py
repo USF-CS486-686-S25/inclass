@@ -8,12 +8,12 @@ def load_chunks(filename):
 
 def get_file_line_mapping(chunks):
     """
-    Create a mapping from filepath to a set of line numbers contained in the chunks.
+    Create a mapping from relpath to a set of line numbers contained in the chunks.
     This allows us to track which lines from which files are included in each JSON.
     """
     file_lines = {}
     for chunk in chunks:
-        filepath = chunk["filepath"]
+        filepath = chunk["relpath"]
         if filepath not in file_lines:
             file_lines[filepath] = set()
         
@@ -49,13 +49,19 @@ def analyze_overlap(file_lines1, file_lines2):
         only_in_file1_count += len(file_only_in_1)
         only_in_file2_count += len(file_only_in_2)
     
-    return {
+
+
+    d = {
         "overlap_count": overlap_count,
         "only_in_file1_count": only_in_file1_count,
         "only_in_file2_count": only_in_file2_count,
         "lines_in_file1": overlap_count + only_in_file1_count,
         "lines_in_file2": overlap_count + only_in_file2_count
     }
+
+    print(d)
+    return d
+
 
 def print_summary(chunks):
     """Print a summary of a chunk set."""
