@@ -44,4 +44,49 @@
     "length": 6,
     "content": "#define O_RDONLY  0x000\n#define O_WRONLY  0x001\n#define O_RDWR    0x002\n#define O_CREATE  0x200\n#define O_TRUNC   0x400"
   },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/fs.c",
+    "filename": "fs.c",
+    "relpath": "kernel/fs.c",
+    "start_line": 198,
+    "end_line": 219,
+    "length": 22,
+    "content": "struct inode*\nialloc(uint dev, short type)\n{\n  int inum;\n  struct buf *bp;\n  struct dinode *dip;\n\n  for(inum = 1; inum < sb.ninodes; inum++){\n    bp = bread(dev, IBLOCK(inum, sb));\n    dip = (struct dinode*)bp->data + inum%IPB;\n    if(dip->type == 0){  // a free inode\n      memset(dip, 0, sizeof(*dip));\n      dip->type = type;\n      log_write(bp);   // mark it allocated on the disk\n      brelse(bp);\n      return iget(dev, inum);\n    }\n    brelse(bp);\n  }\n  printf(\"ialloc: no inodes\\n\");\n  return 0;\n}"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/fs.c",
+    "filename": "fs.c",
+    "relpath": "kernel/fs.c",
+    "start_line": 579,
+    "end_line": 606,
+    "length": 28,
+    "content": "int\ndirlink(struct inode *dp, char *name, uint inum)\n{\n  int off;\n  struct dirent de;\n  struct inode *ip;\n\n  // Check that name is not present.\n  if((ip = dirlookup(dp, name, 0)) != 0){\n    iput(ip);\n    return -1;\n  }\n\n  // Look for an empty dirent.\n  for(off = 0; off < dp->size; off += sizeof(de)){\n    if(readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))\n      panic(\"dirlink read\");\n    if(de.inum == 0)\n      break;\n  }\n\n  strncpy(de.name, name, DIRSIZ);\n  de.inum = inum;\n  if(writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))\n    return -1;\n\n  return 0;\n}"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/file.h",
+    "filename": "file.h",
+    "relpath": "kernel/file.h",
+    "start_line": 1,
+    "end_line": 10,
+    "length": 10,
+    "content": "struct file {\n  enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;\n  int ref; // reference count\n  char readable;\n  char writable;\n  struct pipe *pipe; // FD_PIPE\n  struct inode *ip;  // FD_INODE and FD_DEVICE\n  uint off;          // FD_INODE\n  short major;       // FD_DEVICE\n};"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/file.h",
+    "filename": "file.h",
+    "relpath": "kernel/file.h",
+    "start_line": 16,
+    "end_line": 30,
+    "length": 15,
+    "content": "// in-memory copy of an inode\nstruct inode {\n  uint dev;           // Device number\n  uint inum;          // Inode number\n  int ref;            // Reference count\n  struct sleeplock lock; // protects everything below here\n  int valid;          // inode has been read from disk?\n\n  short type;         // copy of disk inode\n  short major;\n  short minor;\n  short nlink;\n  uint size;\n  uint addrs[NDIRECT+1];\n};"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/fs.h",
+    "filename": "fs.h",
+    "relpath": "kernel/fs.h",
+    "start_line": 31,
+    "end_line": 39,
+    "length": 9,
+    "content": "// On-disk inode structure\nstruct dinode {\n  short type;           // File type\n  short major;          // Major device number (T_DEVICE only)\n  short minor;          // Minor device number (T_DEVICE only)\n  short nlink;          // Number of links to inode in file system\n  uint size;            // Size of file (bytes)\n  uint addrs[NDIRECT+1];   // Data block addresses\n};"
+  }
 ]

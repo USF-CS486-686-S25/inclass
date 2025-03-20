@@ -27,6 +27,33 @@
     "content": "// kalloc.c\nvoid*           kalloc(void);\nvoid            kfree(void *);\nvoid            kinit(void);"
   },
   {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/vm.c",
+    "filename": "vm.c",
+    "relpath": "kernel/vm.c",
+    "start_line": 22,
+    "end_line": 25,
+    "length": 4,
+    "content": "  pagetable_t kpgtbl;\n\n  kpgtbl = (pagetable_t) kalloc();\n  memset(kpgtbl, 0, PGSIZE);"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/vm.c",
+    "filename": "vm.c",
+    "relpath": "kernel/vm.c",
+    "start_line": 95,
+    "end_line": 99,
+    "length": 5,
+    "content": "      pagetable = (pagetable_t)PTE2PA(*pte);\n    } else {\n      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)\n        return 0;\n      memset(pagetable, 0, PGSIZE);"
+  },
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/vm.c",
+    "filename": "vm.c",
+    "relpath": "kernel/vm.c",
+    "start_line": 203,
+    "end_line": 212,
+    "length": 10,
+    "content": "// create an empty user page table.\n// returns 0 if out of memory.\npagetable_t\nuvmcreate()\n{\n  pagetable_t pagetable;\n  pagetable = (pagetable_t) kalloc();\n  if(pagetable == 0)\n    return 0;\n  memset(pagetable, 0, PGSIZE);\n  return pagetable;\n}"
+  },
+  {
     "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/kalloc.c",
     "filename": "kalloc.c",
     "relpath": "kernel/kalloc.c",
@@ -35,5 +62,13 @@
     "length": 8,
     "content": "struct run {\n  struct run *next;\n};\n\nstruct {\n  struct spinlock lock;\n  struct run *freelist;\n} kmem;"
   },
-]
+  {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/vm.c",
+    "filename": "vm.c",
+    "relpath": "kernel/vm.c",
+    "start_line": 242,
+    "end_line": 247,
+    "length": 6,
+    "content": "  oldsz = PGROUNDUP(oldsz);\n  for(a = oldsz; a < newsz; a += PGSIZE){\n    mem = kalloc();\n    if(mem == 0){\n      uvmdealloc(pagetable, a, oldsz);\n      return 0;"
+  }
 ]

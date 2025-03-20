@@ -45,6 +45,15 @@
     "content": "// start() jumps here in supervisor mode on all CPUs.\nvoid\nmain()\n{\n  if(cpuid() == 0){\n    consoleinit();\n    printfinit();\n    printf(\"\\n\");\n    printf(\"xv6 kernel is booting\\n\");\n    printf(\"\\n\");\n    kinit();         // physical page allocator\n    kvminit();       // create kernel page table\n    kvminithart();   // turn on paging\n    procinit();      // process table\n    trapinit();      // trap vectors\n    trapinithart();  // install kernel trap vector\n    plicinit();      // set up interrupt controller\n    plicinithart();  // ask PLIC for device interrupts\n    binit();         // buffer cache\n    iinit();         // inode table\n    fileinit();      // file table\n    virtio_disk_init(); // emulated hard disk\n    userinit();      // first user process\n    __sync_synchronize();\n    started = 1;\n  } else {\n    while(started == 0)\n      ;\n    __sync_synchronize();\n    printf(\"hart %d starting\\n\", cpuid());\n    kvminithart();    // turn on paging\n    trapinithart();   // install kernel trap vector\n    plicinithart();   // ask PLIC for device interrupts\n  }\n\n  scheduler();        \n}"
   },
   {
+    "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/proc.c",
+    "filename": "proc.c",
+    "relpath": "kernel/proc.c",
+    "start_line": 511,
+    "end_line": 519,
+    "length": 9,
+    "content": "// Give up the CPU for one scheduling round.\nvoid\nyield(void)\n{\n  struct proc *p = myproc();\n  acquire(&p->lock);\n  p->state = RUNNABLE;\n  sched();\n  release(&p->lock);\n}"
+  },
+  {
     "filepath": "/Users/benson/Local/cs486-686/inclass/week06/llama-index/xv6-riscv/kernel/proc.h",
     "filename": "proc.h",
     "relpath": "kernel/proc.h",

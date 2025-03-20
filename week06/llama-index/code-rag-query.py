@@ -3,7 +3,7 @@ import json
 import sys
 import argparse
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 def check_requirements(model: str) -> bool:
     """
@@ -41,6 +41,234 @@ def check_requirements(model: str) -> bool:
     
     return True
 
+def judge_answer(model: str, ground_truth_file: str, test_answer_file: str) -> None:
+    """
+    Judge how well a test answer matches a ground truth answer using an LLM.
+    
+    Args:
+        model: The LLM to use for judging (gpt-3.5 or claude-3.7)
+        ground_truth_file: Path to the file containing the ground truth answer
+        test_answer_file: Path to the file containing the test answer
+    """
+    # Check for required packages before proceeding
+    if not check_requirements(model):
+        sys.exit(1)
+        
+    # Load the ground truth and test answers
+    ground_truth = load_text_file(ground_truth_file)
+    test_answer = load_text_file(test_answer_file)
+    
+    if ground_truth is None or test_answer is None:
+        sys.exit(1)
+    
+    # Check for empty or very short test answers first
+    if not test_answer or len(test_answer.strip()) < 10:
+        print(f"Model: {model}")
+        print("Score: 0")
+        print("Explanation: No answer or answer too short")
+        return
+    
+    # Create the prompt for the LLM to judge the answer
+    prompt = create_judge_prompt(ground_truth, test_answer)
+    
+    # Query the appropriate model and get the response
+    response = None
+    if model == "gpt-3.5":
+        response = query_gpt(prompt)
+    elif model == "claude-3.7":
+        response = query_claude(prompt)
+    
+    if response:
+        # Parse the response to extract the score and explanation
+        score, explanation = parse_judge_response(response)
+        
+        # Print the results
+        print(f"Model: {model}")
+        print(f"Score: {score}")
+        print(f"Explanation: {explanation}")
+    else:
+        # Fall back to the simple algorithm if the LLM query failed
+        score, explanation = calculate_score(ground_truth, test_answer)
+        print(f"Model: {model} (using fallback scoring)")
+        print(f"Score: {score}")
+        print(f"Explanation: {explanation}")
+
+def create_judge_prompt(ground_truth: str, test_answer: str) -> str:
+    """
+    Create a prompt for the LLM to judge how well a test answer matches a ground truth.
+    
+    Args:
+        ground_truth: The ground truth answer text
+        test_answer: The test answer text to evaluate
+    
+    Returns:
+        A prompt string for the LLM
+    """
+    prompt = """I need you to judge how well a test answer matches a ground truth answer.
+    
+Please analyze the similarity and assign a score from 0-3 based on these criteria:
+- 3: Very close to the ground truth
+- 2: Partially close to ground truth, but missing details or contains non-relevant information
+- 1: Not close to the ground truth
+- 0: No answer or answer too short
+
+Ground Truth Answer:
+```
+{ground_truth}
+```
+
+Test Answer:
+```
+{test_answer}
+```
+
+Provide your assessment in this exact format:
+SCORE: [number 0-3]
+EXPLANATION: [your reasoning]
+""".format(ground_truth=ground_truth, test_answer=test_answer)
+    
+    print("--- Judge Prompt ---")
+    print(prompt)
+    print("--------------------")
+    
+    return prompt
+
+def parse_judge_response(response: str) -> Tuple[int, str]:
+    """
+    Parse the LLM's response to extract the score and explanation.
+    
+    Args:
+        response: The LLM's response to the judge prompt
+    
+    Returns:
+        A tuple containing the score (0-3) and an explanation
+    """
+    try:
+        # Look for the score pattern "SCORE: [number]"
+        score_match = None
+        for line in response.split('\n'):
+            if line.strip().startswith("SCORE:"):
+                score_match = line.strip()
+                break
+        
+        if score_match:
+            score_str = score_match.split("SCORE:")[1].strip()
+            score = int(score_str)
+            
+            # Validate the score is within range
+            if score < 0:
+                score = 0
+            elif score > 3:
+                score = 3
+        else:
+            # If no score found, default to 1
+            score = 1
+        
+        # Look for the explanation pattern "EXPLANATION: [text]"
+        explanation_match = None
+        for line in response.split('\n'):
+            if line.strip().startswith("EXPLANATION:"):
+                explanation_match = line.strip()
+                break
+        
+        if explanation_match:
+            explanation = explanation_match.split("EXPLANATION:")[1].strip()
+        else:
+            # Try to extract any text after "SCORE:" as the explanation
+            parts = response.split("SCORE:")
+            if len(parts) > 1:
+                possible_explanation = parts[1].strip()
+                # Remove the score number
+                explanation = ' '.join(possible_explanation.split()[1:])
+            else:
+                explanation = "Unable to parse explanation from LLM response"
+        
+        return score, explanation
+    
+    except Exception as e:
+        print(f"Error parsing judge response: {str(e)}")
+        # Fall back to a neutral score and explanation
+        return 1, "Error parsing LLM response"
+
+def calculate_score(ground_truth: str, test_answer: str) -> Tuple[int, str]:
+    """
+    Calculate a score based on how well the test answer matches the ground truth.
+    
+    Args:
+        ground_truth: The ground truth answer text
+        test_answer: The test answer text
+        
+    Returns:
+        A tuple containing the score (0-3) and an explanation
+    """
+    # Check for empty or very short answers first
+    if not test_answer or len(test_answer.strip()) < 10:
+        return 0, "No answer or answer too short"
+    
+    # Simple criteria for scoring:
+    # 3 - Very close to the ground truth
+    # 2 - Partially close to ground truth, but missing details or contains non-relevant information
+    # 1 - Not close
+    # 0 - No answer
+    
+    # Convert texts to lowercase for better comparison
+    ground_truth_lower = ground_truth.lower()
+    test_answer_lower = test_answer.lower()
+    
+    # Calculate simple content overlap
+    gt_words = set(ground_truth_lower.split())
+    ta_words = set(test_answer_lower.split())
+    
+    # Get intersection and unique words
+    common_words = gt_words.intersection(ta_words)
+    gt_unique = gt_words - ta_words
+    ta_unique = ta_words - gt_words
+    
+    # Calculate overlap percentages
+    if len(gt_words) > 0:
+        gt_coverage = len(common_words) / len(gt_words)
+    else:
+        gt_coverage = 0
+        
+    if len(ta_words) > 0:
+        precision = len(common_words) / len(ta_words)
+    else:
+        precision = 0
+    
+    # Make scoring decisions based on coverage and precision
+    if gt_coverage > 0.8 and precision > 0.8:
+        score = 3
+        explanation = "Very close to the ground truth"
+    elif gt_coverage > 0.5 and precision > 0.5:
+        score = 2
+        explanation = "Partially close to ground truth, but missing some details or contains non-relevant information"
+    else:
+        score = 1
+        explanation = "Not close to the ground truth"
+    
+    return score, explanation
+
+def load_text_file(file_path: str) -> Optional[str]:
+    """
+    Load text from a file.
+    
+    Args:
+        file_path: Path to the text file
+    
+    Returns:
+        The text content, or None if there was an error
+    """
+    try:
+        with open(file_path, 'r') as f:
+            content = f.read()
+        return content
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found")
+        return None
+    except Exception as e:
+        print(f"Error loading file: {str(e)}")
+        return None
+
 def main():
     parser = argparse.ArgumentParser(description="Code RAG Query - Use code chunks with LLMs to answer user questions")
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
@@ -51,12 +279,22 @@ def main():
     query_parser.add_argument("chunks_file", help="JSON file containing code chunks")
     query_parser.add_argument("question", help="Question to ask the LLM")
     
+    # Judge command
+    judge_parser = subparsers.add_parser("judge", help="Judge the similarity between a test answer and a ground truth answer")
+    judge_parser.add_argument("model", choices=["gpt-3.5", "claude-3.7"], help="LLM to use for judging the answer")
+    judge_parser.add_argument("ground_truth_file", help="File containing the ground truth answer")
+    judge_parser.add_argument("test_answer_file", help="File containing the test answer to evaluate")
+    
     args = parser.parse_args()
     
     if args.command == "query":
         # Check for required packages before proceeding
         if check_requirements(args.model):
             query_llm(args.model, args.chunks_file, args.question)
+    elif args.command == "judge":
+        # Check for required packages before proceeding
+        if check_requirements(args.model):
+            judge_answer(args.model, args.ground_truth_file, args.test_answer_file)
     else:
         parser.print_help()
 
@@ -135,6 +373,10 @@ def create_prompt(chunks: List[Dict[str, Any]], question: str) -> str:
     prompt += f"Question: {question}\n\n"
     prompt += "Please provide a detailed answer to the question based only on the code chunks provided."
     
+    print("--- Prompt ---")
+    print(prompt)
+    print("--------------")
+
     return prompt
 
 def query_gpt(prompt: str) -> Optional[str]:
