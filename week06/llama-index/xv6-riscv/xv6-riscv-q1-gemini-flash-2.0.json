@@ -1,0 +1,65 @@
+[
+  {
+    "filepath": "kernel/proc.c",
+    "filename": "proc.c",
+    "relpath": "kernel/proc.c",
+    "start_line": 277,
+    "end_line": 326,
+    "length": 50,
+    "content": "// Create a new process, copying the parent.\\n// Sets up child kernel stack to return as if from fork() system call.\\nint\\nfork(void)\\n{\\n  int i, pid;\\n  struct proc *np;\\n  struct proc *p = myproc();\\n\\n  // Allocate process.\\n  if((np = allocproc()) == 0){\\n    return -1;\\n  }\\n\\n  // Copy user memory from parent to child.\\n  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){\\n    freeproc(np);\\n    release(&np->lock);\\n    return -1;\\n  }\\n  np->sz = p->sz;\\n\\n  // copy saved user registers.\\n  *(np->trapframe) = *(p->trapframe);\\n\\n  // Cause fork to return 0 in the child.\\n  np->trapframe->a0 = 0;\\n\\n  // increment reference counts on open file descriptors.\\n  for(i = 0; i < NOFILE; i++)\\n    if(p->ofile[i])\\n      np->ofile[i] = filedup(p->ofile[i]);\\n  np->cwd = idup(p->cwd);\\n\\n  safestrcpy(np->name, p->name, sizeof(p->name));\\n\\n  pid = np->pid;\\n\\n  release(&np->lock);\\n\\n  acquire(&wait_lock);\\n  np->parent = p;\\n  release(&wait_lock);\\n\\n  acquire(&np->lock);\\n  np->state = RUNNABLE;\\n  release(&np->lock);\\n\\n  return pid;\\n}"
+  },
+  {
+    "filepath": "kernel/proc.c",
+    "filename": "proc.c",
+    "relpath": "kernel/proc.c",
+    "start_line": 105,
+    "end_line": 150,
+    "length": 46,
+    "content": "// Look in the process table for an UNUSED proc.\\n// If found, initialize state required to run in the kernel,\\n// and return with p->lock held.\\n// If there are no free procs, or a memory allocation fails, return 0.\\nstatic struct proc*\\nallocproc(void)\\n{\\n  struct proc *p;\\n\\n  for(p = proc; p < &proc[NPROC]; p++) {\\n    acquire(&p->lock);\\n    if(p->state == UNUSED) {\\n      goto found;\\n    } else {\\n      release(&p->lock);\\n    }\\n  }\\n  return 0;\\n\\nfound:\\n  p->pid = allocpid();\\n  p->state = USED;\\n\\n  // Allocate a trapframe page.\\n  if((p->trapframe = (struct trapframe *)kalloc()) == 0){\\n    freeproc(p);\\n    release(&p->lock);\\n    return 0;\\n  }\\n\\n  // An empty user page table.\\n  p->pagetable = proc_pagetable(p);\\n  if(p->pagetable == 0){\\n    freeproc(p);\\n    release(&p->lock);\\n    return 0;\\n  }\\n\\n  // Set up new context to start executing at forkret,\\n  // which returns to user space.\\n  memset(&p->context, 0, sizeof(p->context));\\n  p->context.ra = (uint64)forkret;\\n  p->context.sp = p->kstack + PGSIZE;\\n\\n  return p;\\n}"
+  },
+  {
+    "filepath": "kernel/vm.c",
+    "filename": "vm.c",
+    "relpath": "kernel/vm.c",
+    "start_line": 306,
+    "end_line": 340,
+    "length": 35,
+    "content": "// Given a parent process's page table, copy\\n// its memory into a child's page table.\\n// Copies both the page table and the\\n// physical memory.\\n// returns 0 on success, -1 on failure.\\n// frees any allocated pages on failure.\\nint\\nuvmcopy(pagetable_t old, pagetable_t new, uint64 sz)\\n{\\n  pte_t *pte;\\n  uint64 pa, i;\\n  uint flags;\\n  char *mem;\\n\\n  for(i = 0; i < sz; i += PGSIZE){\\n    if((pte = walk(old, i, 0)) == 0)\\n      panic(\"uvmcopy: pte should exist\");\\n    if((*pte & PTE_V) == 0)\\n      panic(\"uvmcopy: page not present\");\\n    pa = PTE2PA(*pte);\\n    flags = PTE_FLAGS(*pte);\\n    if((mem = kalloc()) == 0)\\n      goto err;\\n    memmove(mem, (char*)pa, PGSIZE);\\n    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){\\n      kfree(mem);\\n      goto err;\\n    }\\n  }\\n  return 0;\\n\\n err:\\n  uvmunmap(new, 0, i / PGSIZE, 1);\\n  return -1;\\n}"
+  },
+  {
+    "filepath": "kernel/proc.c",
+    "filename": "proc.c",
+    "relpath": "kernel/proc.c",
+    "start_line": 521,
+    "end_line": 543,
+    "length": 23,
+    "content": "// A fork child's very first scheduling by scheduler()\\n// will swtch to forkret.\\nvoid\\nforkret(void)\\n{\\n  static int first = 1;\\n\\n  // Still holding p->lock from scheduler.\\n  release(&myproc()->lock);\\n\\n  if (first) {\\n    // File system initialization must be run in the context of a\\n    // regular process (e.g., because it calls sleep), and thus cannot\\n    // be run from main().\\n    fsinit(ROOTDEV);\\n\\n    first = 0;\\n    // ensure other cores see first=0.\\n    __sync_synchronize();\\n  }\\n\\n  usertrapret();\\n}"
+  },
+  {
+    "filepath": "kernel/syscall.c",
+    "filename": "syscall.c",
+    "relpath": "kernel/syscall.c",
+    "start_line": 131,
+    "end_line": 147,
+    "length": 17,
+    "content": "void\\nsyscall(void)\\n{\\n  int num;\\n  struct proc *p = myproc();\\n\\n  num = p->trapframe->a7;\\n  if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {\\n    // Use num to lookup the system call function for num, call it,\\n    // and store its return value in p->trapframe->a0\\n    p->trapframe->a0 = syscalls[num]();\\n  } else {\\n    printf(\"%d %s: unknown sys call %d\\n\",\\n            p->pid, p->name, num);\\n    p->trapframe->a0 = -1;\\n  }\\n}"
+  },
+  {
+    "filepath": "kernel/sysproc.c",
+    "filename": "sysproc.c",
+    "relpath": "kernel/sysproc.c",
+    "start_line": 24,
+    "end_line": 28,
+    "length": 5,
+    "content": "uint64\\nsys_fork(void)\\n{\\n  return fork();\\n}"
+  },
+  {
+    "filepath": "kernel/syscall.h",
+    "filename": "syscall.h",
+    "relpath": "kernel/syscall.h",
+    "start_line": 1,
+    "end_line": 23,
+    "length": 23,
+    "content": "// System call numbers\\n#define SYS_fork    1\\n#define SYS_exit    2\\n#define SYS_wait    3\\n#define SYS_pipe    4\\n#define SYS_read    5\\n#define SYS_kill    6\\n#define SYS_exec    7\\n#define SYS_fstat   8\\n#define SYS_chdir   9\\n#define SYS_dup    10\\n#define SYS_getpid 11\\n#define SYS_sbrk   12\\n#define SYS_sleep  13\\n#define SYS_uptime 14\\n#define SYS_open   15\\n#define SYS_write  16\\n#define SYS_mknod  17\\n#define SYS_unlink 18\\n#define SYS_link   19\\n#define SYS_mkdir  20\\n#define SYS_close  21"
+  }
+]

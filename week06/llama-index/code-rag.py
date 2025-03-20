@@ -61,7 +61,8 @@ def create_openai_ef():
         
     return embedding_functions.OpenAIEmbeddingFunction(
         api_key=os.environ["OPENAI_API_KEY"],
-        model_name="text-embedding-3-small"
+        #model_name="text-embedding-3-small"
+        model_name="text-embedding-ada-002"
     )
 
 def find_source_files(directory):
