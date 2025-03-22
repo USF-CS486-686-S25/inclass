@@ -6,16 +6,21 @@ This script provides functionality for chunking source code, indexing those chun
 ChromaDB vector database, and retrieving relevant code snippets based on semantic similarity.
 
 Usage:
-    python code-rag.py chunker <path-to-source-tree> <output-json-file>
-    python code-rag.py indexer <chunk-list-json-file>
-    python code-rag.py retrieve <user prompt for vector similarity search>
-    python code-rag.py resetdb
+    python code-rag.py chunker <path-to-source-tree> <output-json-file> [--language/-l <language>]
+    python code-rag.py indexer <chunk-list-json-file> [--db-path <path>]
+    python code-rag.py retrieve <user prompt for vector similarity search> [--db-path <path>]
+    python code-rag.py resetdb [--db-path <path>]
 
 Example:
     python code-rag.py chunker ../xv6-riscv chunk-list.json
+    python code-rag.py chunker ../xv6-riscv chunk-list.json --language c
+    python code-rag.py chunker ../python-project chunk-list.json -l python
     python code-rag.py indexer chunk-list.json
+    python code-rag.py indexer chunk-list.json --db-path custom_db
     python code-rag.py retrieve "how does file system initialization work?"
+    python code-rag.py retrieve "how does file system initialization work?" --db-path custom_db
     python code-rag.py resetdb
+    python code-rag.py resetdb --db-path custom_db
 """
 
 import os
@@ -48,7 +53,7 @@ except ImportError as e:
     sys.exit(1)
 
 # Constants
-DB_DIRECTORY = "code_chunks_db"
+DEFAULT_DB_DIRECTORY = "code_chunks_db"
 COLLECTION_NAME = "code_chunks"
 
 def create_openai_ef():
@@ -65,16 +70,18 @@ def create_openai_ef():
         model_name="text-embedding-ada-002"
     )
 
-def find_source_files(directory):
-    """Find all .c and .h files in directory and subdirectories."""
+def find_source_files(directory, language="c"):
+    """Find all source files in directory and subdirectories based on language."""
     source_files = []
+    extensions = ['.c', '.h'] if language == "c" else ['.py']
+    
     for root, _, files in os.walk(directory):
         for file in files:
-            if file.endswith(('.c', '.h')):
+            if any(file.endswith(ext) for ext in extensions):
                 source_files.append(os.path.join(root, file))
     return source_files
 
-def process_file(file_path, base_dir):
+def process_file(file_path, base_dir, language="c"):
     """Process a source file and return its chunks with metadata."""
     try:
         # Read the file content
@@ -92,7 +99,7 @@ def process_file(file_path, base_dir):
         
         # Configure the CodeSplitter
         code_splitter = CodeSplitter(
-            language="c",
+            language=language,
             chunk_lines=60,  # Adjust as needed
             chunk_lines_overlap=5,  # Adjust as needed
             max_chars=2048,  # Adjust as needed
@@ -123,7 +130,7 @@ def process_file(file_path, base_dir):
         traceback.print_exc()
         return []
 
-def chunk_source_tree(source_dir, output_file):
+def chunk_source_tree(source_dir, output_file, language="c"):
     """Process all files in the source directory and save chunks to a JSON file."""
     # Check if the directory exists
     if not os.path.isdir(source_dir):
@@ -134,14 +141,14 @@ def chunk_source_tree(source_dir, output_file):
     abs_dir_path = os.path.abspath(source_dir)
     
     # Find all source files
-    source_files = find_source_files(abs_dir_path)
+    source_files = find_source_files(abs_dir_path, language)
     print(f"Found {len(source_files)} source files in {abs_dir_path}")
     
     # Process each file and collect chunks
     all_chunks = []
     for file_path in source_files:
         print(f"Processing {file_path}")
-        chunks = process_file(file_path, abs_dir_path)
+        chunks = process_file(file_path, abs_dir_path, language)
         all_chunks.extend(chunks)
         print(f"  - Generated {len(chunks)} chunks")
     
@@ -153,9 +160,9 @@ def chunk_source_tree(source_dir, output_file):
     print(f"Generated {len(all_chunks)} chunks.")
     print(f"Results saved to {output_file}")
 
-def get_chroma_client():
+def get_chroma_client(db_path=DEFAULT_DB_DIRECTORY):
     """Get or create a ChromaDB client."""
-    return chromadb.PersistentClient(path=DB_DIRECTORY)
+    return chromadb.PersistentClient(path=db_path)
 
 def get_collection(client, embedding_function=None):
     """Get or create the collection for code chunks."""
@@ -172,7 +179,7 @@ def get_collection(client, embedding_function=None):
             embedding_function=embedding_function
         )
 
-def index_chunks(chunk_file):
+def index_chunks(chunk_file, db_path=DEFAULT_DB_DIRECTORY):
     """Index chunks from a JSON file into ChromaDB with OpenAI embeddings."""
     # Load chunks from JSON
     try:
@@ -186,7 +193,7 @@ def index_chunks(chunk_file):
     
     # Setup ChromaDB with OpenAI embeddings
     embedding_function = create_openai_ef()
-    client = get_chroma_client()
+    client = get_chroma_client(db_path)
     collection = get_collection(client, embedding_function)
     
     # Prepare data for batch upload
@@ -225,11 +232,11 @@ def index_chunks(chunk_file):
     count = collection.count()
     print(f"Successfully indexed {count} chunks in ChromaDB")
 
-def retrieve_chunks(query, top_k=5):
+def retrieve_chunks(query, top_k=5, db_path=DEFAULT_DB_DIRECTORY):
     """Retrieve chunks from ChromaDB based on the query."""
     # Setup ChromaDB with OpenAI embeddings
     embedding_function = create_openai_ef()
-    client = get_chroma_client()
+    client = get_chroma_client(db_path)
     
     try:
         collection = get_collection(client, embedding_function)
@@ -265,9 +272,9 @@ def retrieve_chunks(query, top_k=5):
     
     return formatted_results
 
-def reset_db():
+def reset_db(db_path=DEFAULT_DB_DIRECTORY):
     """Reset the ChromaDB database by deleting and recreating it."""
-    client = get_chroma_client()
+    client = get_chroma_client(db_path)
     
     try:
         client.delete_collection(COLLECTION_NAME)
@@ -288,18 +295,26 @@ def main():
     chunker_parser = subparsers.add_parser("chunker", help="Process source tree and save chunks to JSON")
     chunker_parser.add_argument("source_dir", help="Path to source directory")
     chunker_parser.add_argument("output_file", help="Output JSON file path")
+    chunker_parser.add_argument("-l", "--language", choices=["c", "python"], default="c",
+                               help="Source code language (default: c)")
     
     # Indexer command
     indexer_parser = subparsers.add_parser("indexer", help="Index chunks from JSON file to ChromaDB")
     indexer_parser.add_argument("chunk_file", help="Input JSON file with chunks")
+    indexer_parser.add_argument("--db-path", default=DEFAULT_DB_DIRECTORY,
+                               help=f"Path to ChromaDB database (default: {DEFAULT_DB_DIRECTORY})")
     
     # Retrieve command
     retrieve_parser = subparsers.add_parser("retrieve", help="Retrieve chunks based on query")
     retrieve_parser.add_argument("query", help="Query string for retrieval")
     retrieve_parser.add_argument("-k", "--top-k", type=int, default=5, help="Number of results to return")
+    retrieve_parser.add_argument("--db-path", default=DEFAULT_DB_DIRECTORY,
+                               help=f"Path to ChromaDB database (default: {DEFAULT_DB_DIRECTORY})")
     
     # Reset command
-    subparsers.add_parser("resetdb", help="Reset the ChromaDB database")
+    resetdb_parser = subparsers.add_parser("resetdb", help="Reset the ChromaDB database")
+    resetdb_parser.add_argument("--db-path", default=DEFAULT_DB_DIRECTORY,
+                              help=f"Path to ChromaDB database (default: {DEFAULT_DB_DIRECTORY})")
     
     args = parser.parse_args()
     
@@ -308,17 +323,17 @@ def main():
         return
     
     if args.command == "chunker":
-        chunk_source_tree(args.source_dir, args.output_file)
+        chunk_source_tree(args.source_dir, args.output_file, args.language)
     
     elif args.command == "indexer":
-        index_chunks(args.chunk_file)
+        index_chunks(args.chunk_file, args.db_path)
     
     elif args.command == "retrieve":
-        results = retrieve_chunks(args.query, args.top_k)
+        results = retrieve_chunks(args.query, args.top_k, args.db_path)
         print(json.dumps(results, indent=2))
     
     elif args.command == "resetdb":
-        reset_db()
+        reset_db(args.db_path)
 
 if __name__ == "__main__":
     main()
