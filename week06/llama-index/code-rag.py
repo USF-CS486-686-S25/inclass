@@ -6,21 +6,20 @@ This script provides functionality for chunking source code, indexing those chun
 ChromaDB vector database, and retrieving relevant code snippets based on semantic similarity.
 
 Usage:
-    python code-rag.py chunker <path-to-source-tree> <output-json-file> [--language/-l <language>]
-    python code-rag.py indexer <chunk-list-json-file> [--db-path <path>]
-    python code-rag.py retrieve <user prompt for vector similarity search> [--db-path <path>]
-    python code-rag.py resetdb [--db-path <path>]
+    python code-rag.py chunk <path-to-source-tree> [<output-json-file>] [--language/-l <language>]
+    python code-rag.py index <codebase>
+    python code-rag.py retrieve <codebase> <user prompt for vector similarity search>
+    python code-rag.py resetdb <codebase>
+    python code-rag.py view <codebase>
 
 Example:
-    python code-rag.py chunker ../xv6-riscv chunk-list.json
-    python code-rag.py chunker ../xv6-riscv chunk-list.json --language c
-    python code-rag.py chunker ../python-project chunk-list.json -l python
-    python code-rag.py indexer chunk-list.json
-    python code-rag.py indexer chunk-list.json --db-path custom_db
-    python code-rag.py retrieve "how does file system initialization work?"
-    python code-rag.py retrieve "how does file system initialization work?" --db-path custom_db
-    python code-rag.py resetdb
-    python code-rag.py resetdb --db-path custom_db
+    python code-rag.py chunk ../xv6-riscv
+    python code-rag.py chunk ../xv6-riscv --language c
+    python code-rag.py chunk ../python-project xv6-riscv.json -l python
+    python code-rag.py index xv6-riscv
+    python code-rag.py retrieve xv6-riscv "how does file system initialization work?"
+    python code-rag.py resetdb xv6-riscv
+    python code-rag.py view codebase
 """
 
 import os
@@ -172,7 +171,7 @@ def get_collection(client, embedding_function=None):
             name=COLLECTION_NAME,
             embedding_function=embedding_function
         )
-    except InvalidCollectionException:
+    except (InvalidCollectionException, ValueError):
         # Collection doesn't exist, create it
         return client.create_collection(
             name=COLLECTION_NAME,
@@ -201,7 +200,13 @@ def index_chunks(chunk_file, db_path=DEFAULT_DB_DIRECTORY):
     documents = []
     metadatas = []
     
+    skipped_count = 0
     for i, chunk in enumerate(chunks):
+        # Skip chunks with empty content
+        if not chunk["content"]:
+            skipped_count += 1
+            continue
+            
         chunk_id = f"chunk_{i}"
         ids.append(chunk_id)
         documents.append(chunk["content"])
@@ -231,6 +236,8 @@ def index_chunks(chunk_file, db_path=DEFAULT_DB_DIRECTORY):
     
     count = collection.count()
     print(f"Successfully indexed {count} chunks in ChromaDB")
+    if skipped_count > 0:
+        print(f"Skipped {skipped_count} chunks with empty content")
 
 def retrieve_chunks(query, top_k=5, db_path=DEFAULT_DB_DIRECTORY):
     """Retrieve chunks from ChromaDB based on the query."""
@@ -242,7 +249,7 @@ def retrieve_chunks(query, top_k=5, db_path=DEFAULT_DB_DIRECTORY):
         collection = get_collection(client, embedding_function)
     except InvalidCollectionException:
         print(f"Error: Collection '{COLLECTION_NAME}' does not exist.")
-        print("Make sure you have indexed chunks with 'python code-rag.py indexer <chunk-file>' before trying to retrieve.")
+        print("Make sure you have indexed chunks with 'python code-rag.py index <codebase>' before trying to retrieve.")
         sys.exit(1)
     except Exception as e:
         print(f"Error accessing collection: {e}")
@@ -287,34 +294,55 @@ def reset_db(db_path=DEFAULT_DB_DIRECTORY):
     get_collection(client, embedding_function)
     print(f"Created a new empty collection '{COLLECTION_NAME}'")
 
+def view_chunks(chunk_file):
+    """Display all chunks from a JSON file in a human-readable format."""
+    try:
+        with open(chunk_file, 'r') as f:
+            chunks = json.load(f)
+    except Exception as e:
+        print(f"Error loading chunks from {chunk_file}: {e}")
+        sys.exit(1)
+    
+    print(f"Loaded {len(chunks)} chunks from {chunk_file}")
+    print()
+    
+    for chunk in chunks:
+        print(f"=== {chunk['relpath']} [{chunk['start_line']}:{chunk['end_line']}:{chunk['length']}] ===\n")
+        print(chunk['content'])
+        print()  # Extra newline for separation
+
+def get_base_name(path):
+    """Extract base name from a path, without extension."""
+    return os.path.splitext(os.path.basename(path))[0]
+
 def main():
     parser = argparse.ArgumentParser(description="Code RAG - ChromaDB-based code retrieval system")
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
     
-    # Chunker command
-    chunker_parser = subparsers.add_parser("chunker", help="Process source tree and save chunks to JSON")
-    chunker_parser.add_argument("source_dir", help="Path to source directory")
-    chunker_parser.add_argument("output_file", help="Output JSON file path")
-    chunker_parser.add_argument("-l", "--language", choices=["c", "python"], default="c",
-                               help="Source code language (default: c)")
+    # Chunk command
+    chunk_parser = subparsers.add_parser("chunk", help="Process source tree and save chunks to JSON")
+    chunk_parser.add_argument("source_dir", help="Path to source directory")
+    chunk_parser.add_argument("output_file", nargs='?', help="Output JSON file path (default: <source_dir_basename>.json)")
+    chunk_parser.add_argument("-l", "--language", choices=["c", "python"], default="c",
+                                help="Source code language (default: c)")
     
-    # Indexer command
-    indexer_parser = subparsers.add_parser("indexer", help="Index chunks from JSON file to ChromaDB")
-    indexer_parser.add_argument("chunk_file", help="Input JSON file with chunks")
-    indexer_parser.add_argument("--db-path", default=DEFAULT_DB_DIRECTORY,
-                               help=f"Path to ChromaDB database (default: {DEFAULT_DB_DIRECTORY})")
+    # Index command
+    index_parser = subparsers.add_parser("index", help="Index chunks from codebase.json file to ChromaDB")
+    index_parser.add_argument("codebase", help="Codebase name (will use <codebase>.json for chunks)")
     
     # Retrieve command
     retrieve_parser = subparsers.add_parser("retrieve", help="Retrieve chunks based on query")
+    retrieve_parser.add_argument("codebase", help="Codebase name (will use <codebase>.db)")
     retrieve_parser.add_argument("query", help="Query string for retrieval")
     retrieve_parser.add_argument("-k", "--top-k", type=int, default=5, help="Number of results to return")
-    retrieve_parser.add_argument("--db-path", default=DEFAULT_DB_DIRECTORY,
-                               help=f"Path to ChromaDB database (default: {DEFAULT_DB_DIRECTORY})")
     
     # Reset command
     resetdb_parser = subparsers.add_parser("resetdb", help="Reset the ChromaDB database")
-    resetdb_parser.add_argument("--db-path", default=DEFAULT_DB_DIRECTORY,
-                              help=f"Path to ChromaDB database (default: {DEFAULT_DB_DIRECTORY})")
+    resetdb_parser.add_argument("codebase", help="Codebase name (will use <codebase>.db)")
+    
+    # View command
+    view_parser = subparsers.add_parser("view", help="Display chunks in human-readable format")
+    view_parser.add_argument("codebase", help="Codebase name (will use <codebase>.json)")
     
     args = parser.parse_args()
     
@@ -322,18 +350,42 @@ def main():
         parser.print_help()
         return
     
-    if args.command == "chunker":
-        chunk_source_tree(args.source_dir, args.output_file, args.language)
+    if args.command == "chunk":
+        # If output_file is not specified, use source_dir basename + .json
+        output_file = args.output_file
+        if output_file is None:
+            # Extract the base name from source_dir
+            base_name = get_base_name(args.source_dir)
+            output_file = f"{base_name}.json"
+        
+        chunk_source_tree(args.source_dir, output_file, args.language)
     
-    elif args.command == "indexer":
-        index_chunks(args.chunk_file, args.db_path)
+    elif args.command == "index":
+        # Construct the chunk file path from codebase name
+        chunk_file = f"{args.codebase}.json"
+        # Use codebase name + .db as the db_path
+        db_path = f"{args.codebase}.db"
+        
+        index_chunks(chunk_file, db_path)
     
     elif args.command == "retrieve":
-        results = retrieve_chunks(args.query, args.top_k, args.db_path)
+        # Use codebase + .db as the db_path
+        db_path = f"{args.codebase}.db"
+        
+        results = retrieve_chunks(args.query, args.top_k, db_path)
         print(json.dumps(results, indent=2))
     
     elif args.command == "resetdb":
-        reset_db(args.db_path)
+        # Use codebase + .db as the db_path
+        db_path = f"{args.codebase}.db"
+        
+        reset_db(db_path)
+        
+    elif args.command == "view":
+        # Use codebase + .json as the chunk file path
+        chunk_file = f"{args.codebase}.json"
+        
+        view_chunks(chunk_file)
 
 if __name__ == "__main__":
     main()
