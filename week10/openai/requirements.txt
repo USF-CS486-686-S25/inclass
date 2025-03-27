@@ -1,0 +1,6 @@
+# External libraries required for the OpenAI tool call examples
+openai
+pytz
+tzlocal
+colorlog
+pygments
