@@ -20,6 +20,6 @@ llm = OpenAI(model="gpt-4o", temperature=0)
 
 agent = OpenAIAgent.from_tools([multiply_tool, add_tool], llm=llm, verbose=True)
 
-response = agent.chat("What is 20+(2*4)? Use a tool to calculate every step.")
+response = agent.chat("What is 1+2+3+4+5+6? Use a tool to calculate every step.")
 
 print(response)

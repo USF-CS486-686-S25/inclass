@@ -74,7 +74,7 @@ Use the provided tools to perform the desired computation.
 
 Show your step by step tool call plan, then call the tools to compute the result. Please use all the tools that are needed to complete the computation.
 
-Perform this calucation:
+Perform this calculation:
 
 Sum these numbers: 1.1 2.2 3.3 4.4 5.5
 """

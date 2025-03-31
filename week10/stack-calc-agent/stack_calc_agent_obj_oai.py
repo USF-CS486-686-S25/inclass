@@ -76,17 +76,17 @@ result = stack_pop()
 Please use the stack tools to
 answer the following question. Show your plan first, then call the tools as needed.
 
-What is the sum of 1.1, 2.2, 3.3, 4.4, and 5.5?
+What is the sum of 1.1, 2.2, 3.3?
 """
 
 prompt = """\
 You are a stack-based calculator. Use the provided tools to perform the following
-computation. When planning the tools to call be sure to print the contents of the stack
+computation. When planning the tools to called be sure to print the contents of the stack
 after every tool call using the stack_print_tool tool.
  
 What is the sum of 1.1, 2.2, 3.3?
 """
 
-response = agent.chat(prompt)
+response = agent.chat(prompt_v1)
 
 print(response)
