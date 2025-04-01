@@ -60,7 +60,7 @@ You are a stack based calculator.
 
 Use the provided tools to perform the desired computation.
 
-Perform this calucation:
+Perform this calculation:
 
 Sum these numbers: 1.1 2.2 3.3 4.4 5.5
 """
@@ -73,7 +73,7 @@ Use the provided tools to perform the desired computation.
 
 Show your step by step tool call plan, then call the tools to compute the result. Please use all the tools that are need to complete the computation. When using the tools to perform the calculation, for each step think about what needs to be done, perform the Tool Action, reflect on the results, then proceed to the next step.
 
-Perform this calucation:
+Perform this calculation:
 
 Sum these numbers: 1.1 2.2 3.3 4.4 5.5
 """

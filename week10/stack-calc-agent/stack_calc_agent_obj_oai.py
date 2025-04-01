@@ -76,7 +76,7 @@ result = stack_pop()
 Please use the stack tools to
 answer the following question. Show your plan first, then call the tools as needed.
 
-What is the sum of 1.1, 2.2, 3.3?
+What is the sum of 1.1, 2.2, 3.3, 4.4, 5.5?
 """
 
 prompt = """\
