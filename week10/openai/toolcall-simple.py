@@ -1,5 +1,6 @@
 from openai import OpenAI
 import os
+import json
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -41,10 +42,30 @@ tool_choice="auto")
 # See if a tool was called
 tool_calls = response.choices[0].message.tool_calls
 
+# Pretty print the tool_calls object as JSON
+if tool_calls:
+    # Convert tool_calls to a JSON-serializable structure
+    tool_calls_json = []
+    for tool_call in tool_calls:
+        tool_call_dict = {
+            "id": tool_call.id,
+            "type": tool_call.type,
+            "function": {
+                "name": tool_call.function.name,
+                "arguments": json.loads(tool_call.function.arguments)
+            }
+        }
+        tool_calls_json.append(tool_call_dict)
+    
+    # Print the formatted JSON
+    print("Tool Calls (JSON format):")
+    print(json.dumps(tool_calls_json, indent=4))
+    print("\n")
+
 if tool_calls:
     for tool_call in tool_calls:
         function_name = tool_call.function.name
-        arguments = eval(tool_call.function.arguments)  # Use json.loads in production!
+        arguments = json.loads(tool_call.function.arguments)  # Safer than eval
         if function_name == "get_current_weather":
             result = get_current_weather(**arguments)
 

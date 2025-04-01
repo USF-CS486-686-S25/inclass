@@ -6,8 +6,14 @@ from llama_index.agent.openai import OpenAIAgent
 from llama_index.llms.openai import OpenAI
 from llama_index.core.tools import FunctionTool
 
-# Import the fetch_url function from the simple module
-from simple import fetch_url
+def fetch_url(url):
+    """Fetch content from the specified URL."""
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for 4XX/5XX responses
+        return response.text
+    except requests.exceptions.RequestException as e:
+        return f"Error: {e}"
 
 # Create a function tool from the fetch_url function
 fetch_url_tool = FunctionTool.from_defaults(
