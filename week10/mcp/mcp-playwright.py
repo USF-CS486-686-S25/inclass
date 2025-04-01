@@ -24,7 +24,7 @@ async def get_agent(tools: McpToolSpec):
     tools = await tools.to_tool_list_async()
     agent = FunctionAgent(
         name="Agent",
-        description="An agent that can work tools.",
+        description="An agent that can work with tools.",
         tools=tools,
         llm=llm,
         system_prompt=SYSTEM_PROMPT,

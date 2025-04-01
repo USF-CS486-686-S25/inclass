@@ -108,7 +108,7 @@ class StatefulMCPClient(BasicMCPClient):
 llm = OpenAI(model="gpt-4o")
 
 # Print all available methods for debugging
-print(f"FunctionAgent methods: {dir(FunctionAgent)}")
+# print(f"FunctionAgent methods: {dir(FunctionAgent)}")
 
 SYSTEM_PROMPT = """\
 You are an AI assistant for Tool Calling.
@@ -169,8 +169,16 @@ async def main():
         agent = await get_agent(mcp_tool)
         agent_context = Context(agent)
         
-        # Handle a test message
-        prompt = "list the first 3 articles on news.ycombinator.com"
+        # Get prompt from command line arguments or use default
+        default_prompt = "list the first 3 articles on news.ycombinator.com"
+        if len(sys.argv) > 1:
+            # Join all arguments after script name to form the prompt
+            prompt = " ".join(sys.argv[1:])
+        else:
+            prompt = default_prompt
+            print(f"No prompt provided. Using default: '{default_prompt}'")
+            print("Usage: python mcp-stateful.py <your prompt here>")
+        
         response = await handle_user_message(prompt, agent, agent_context, verbose=True)
         print("Final response:", response)
         
