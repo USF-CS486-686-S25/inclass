@@ -1,18 +1,24 @@
 import asyncio
+import logging
+import sys
 
 from llama_index.llms.openai import OpenAI
 from llama_index.llms.anthropic import Anthropic
 
 import dotenv
 
+#logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+#logging.getLogger().addHandler(logging.StreamHandler(stream=sys.stdout))
+
 dotenv.load_dotenv()
+
+
 
 # Load LLM
 #llm = OpenAI(model="gpt-4o")
-llm = OpenAI(model="o3-mini")
+#llm = OpenAI(model="o3-mini")
 #llm = Anthropic(model="claude-3-7-sonnet-latest")
-#llm = Anthropic(model="anthropic.claude-3-5-sonnet-20241022-v2:0")
-#llm = Anthropic(model="claude-3-5-sonnet-20241022-v2:0")
+llm = Anthropic(model="claude-3-5-sonnet-latest")
 
 from llama_index.tools.mcp import McpToolSpec
 from llama_index.core.agent.workflow import FunctionAgent, ToolCallResult, ToolCall
@@ -33,6 +39,7 @@ async def get_agent(tools: McpToolSpec):
         tools=tools,
         llm=llm,
         system_prompt=SYSTEM_PROMPT,
+        verbose=True,
     )
     return agent
 
@@ -41,7 +48,7 @@ async def handle_user_message(
     message_content: str,
     agent: FunctionAgent,
     agent_context: Context,
-    verbose: bool = False,
+    verbose: bool = True,
 ):
     handler = agent.run(message_content, ctx=agent_context)
     async for event in handler.stream_events():
@@ -84,7 +91,8 @@ async def main():
     #prompt = "List the playwright tools"
     #prompt = "Summarize news.ycombinator.com"
     #prompt = "How many days between 2000-01-01 and 2025-03-18?"    
-    prompt = """Please determine which time slots LS 307 is available during the week, Monday through Friday 8am to 9pm. Use the data below and write and execute python code to determine the free slots.
+    prompt = "What tools can you use?"
+    prompt1 = """Please determine which time slots LS 307 is available during the week, Monday through Friday 8am to 9pm. Use the CSV data below and write and execute python code using the mcp-run-python tool determine the free slots.
     
 Select,CRN,Subj,Crse,Sec,Cmp,Cred,Title,Days,Time,Cap,Act,Rem,WL Cap,WL Act,WL Rem,XL Cap,XL Act,XL Rem,Instructor,Date (MM/DD),Location,Attribute
 C,40427,CS,107,01,M,4.000,Computing Mobile Apps & Web,MW,04:45 pm-06:25 pm,25,25,0,0,0,0,0,0,0,Andrew Rothman (P),08/19-12/11,HR 148,"Core B1 Math or Quant Sci and Education: Liberal Studies and In-Person Modality and Tuition (Sciences)"

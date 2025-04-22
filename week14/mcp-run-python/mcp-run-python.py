@@ -17,6 +17,7 @@ server_params = StdioServerParameters(
         '-W=node_modules',
         '--node-modules-dir=auto',
         'jsr:@pydantic/mcp-run-python',
+        '--cwd=/Users/benson/local/cs486-686/inclass/week14/mcp-run-python',
         'stdio',
     ],
 )
